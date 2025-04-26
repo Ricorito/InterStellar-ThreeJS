@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="hu">
+
+<head>
+  <meta charset="utf-8">
+  <title>Interstellar(2014) - Into The Blackhole</title>
+  <style>
+      body { margin: 0; overflow: hidden; }
+      canvas { width: 100%; height: 100% }
+      #overlay {
+          position: absolute;
+          top: 10px;
+          left: 10px;
+          color:white;
+          font-size: 0.80rem;
+          font-family: 'Courier New',monospace;
+      }
+      #keyboardInfo {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          color:white;
+          font-size: 0.80rem;
+          font-family: 'Courier New',monospace;
+      }
+  </style>
+</head>
+
+<body>
+
+<script async src="./dist/es-module-shims.js"></script>
+<script type="importmap">
+  {
+      "imports": {
+          "three": "./js-r154/build/three.module.js",
+          "MeshGouraudMaterial": "./js-r154/examples/jsm/materials/MeshGouraudMaterial.js",
+          "trackballcontrols": "./js-r154/examples/jsm/controls/TrackballControls.js"
+      }
+  }
+</script>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { TrackballControls } from 'trackballcontrols';
+
+    let WIDTH, HEIGHT, aspectRatio;
+    let renderer;
+    let scene, camera;
+    let controls;
+    let keyboardInfoElement;
+    let keyboardInfoVisible = true;
+    let stars;
+
+    init();
+    render();
+    animate();
+
+    function init() {
+        HEIGHT = window.innerHeight;
+        WIDTH = window.innerWidth;
+        aspectRatio = WIDTH / HEIGHT;
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(WIDTH, HEIGHT);
+        renderer.setClearColor(0x000000);
+        document.body.appendChild(renderer.domElement);
+
+        scene = new THREE.Scene();
+
+        camera = new THREE.PerspectiveCamera(75, aspectRatio, 0.1, 5000);
+        camera.position.set(120, 100, 250);
+        camera.lookAt(scene.position.x, scene.position.y, scene.position.z);
+
+        const overlayElement = document.createElement('div');
+        overlayElement.id = 'overlay';
+        document.body.appendChild(overlayElement);
+        overlayElement.innerText = `Nev: Germán Martin\nNEPTUN: NIDO9W\nSzak: Üzemmérnök-informatikus\nTanev: 2023/2024 I.`;
+
+        keyboardInfoElement = document.createElement('div');
+        keyboardInfoElement.id = 'keyboardInfo';
+        document.body.appendChild(keyboardInfoElement);
+        updateKeyboardInfo();
+
+        stars = new THREE.Group();
+        for (let i = 0; i < 4000; i++) {
+            const starGeometry = new THREE.SphereGeometry(0.6, 8, 8);
+            const starMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFFF, emissive: 0xFFFFFF });
+            const star = new THREE.Mesh(starGeometry, starMaterial);
+            const x = (Math.random() - 0.5) * 4000;
+            const y = (Math.random() - 0.5) * 4000;
+            const z = (Math.random() - 0.5) * 4000;
+            star.position.set(x, y, z);
+            stars.add(star);
+        }
+        scene.add(stars);
+
+        let ambientLight = new THREE.AmbientLight(0x4A5D64, 0.5, 100);
+        ambientLight.position.set(0, 10, 15);
+        scene.add(ambientLight);
+
+        let pointLight1 = new THREE.PointLight(0xFDE4C6, 50, 150);
+        pointLight1.position.set(-200, 150, -150);
+        pointLight1.castShadow = false;
+        pointLight1.receiveShadow = true;
+        scene.add(pointLight1);
+
+        let directionalLight = new THREE.DirectionalLight(0x43565E, 1);
+        directionalLight.position.set(0, 40, 0);
+        directionalLight.castShadow = false;
+        directionalLight.target = scene;
+        directionalLight.shadow.camera.top = 200;
+        directionalLight.shadow.camera.bottom = - 200;
+        directionalLight.shadow.camera.left = - 200;
+        directionalLight.shadow.camera.right = 200;
+        scene.add(directionalLight);
+        scene.add(directionalLight.target);
+
+        let spotLight = new THREE.SpotLight(0xffffff, 1);
+        spotLight.position.set(-200, 220, -50);
+        spotLight.angle = Math.PI / 3;
+        spotLight.target = scene;
+        spotLight.penumbra = 0.8;
+        spotLight.distance = 1100;
+        spotLight.castShadow = true;
+        spotLight.receiveShadow = true;
+        scene.add(spotLight);
+
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        window.addEventListener('resize', handleWindowResize, false);
+
+        controls = new TrackballControls(camera, renderer.domElement);
+        controls.rotateSpeed = 5.0;
+        controls.panSpeed = 1.0;
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+    }
+
+    function handleWindowResize() {
+        HEIGHT = window.innerHeight;
+        WIDTH = window.innerWidth;
+        renderer.setSize(WIDTH, HEIGHT);
+        aspectRatio = WIDTH / HEIGHT;
+        camera.aspect = aspectRatio;
+        camera.updateProjectionMatrix();
+        render();
+    }
+
+    function updateKeyboardInfo() {
+        keyboardInfoElement.innerText = `
+    Billentyűutasítás:
+    - "I" (mint Ilona): Szöveges információk ki/be kapcsolása
+    - "Space": Űrhajó 360° fokos forgása
+    - "T" (mint Tamás): Teleportálás a feketelyuk belsejébe
+  `;
+        if (keyboardInfoVisible) {
+            keyboardInfoElement.style.opacity = 1;
+        } else {
+            keyboardInfoElement.style.opacity = 0;
+        }
+    }
+
+    const keys = {
+        I: 73,
+        SPACE: 32,
+        T: 84,
+    };
+
+    function toggleOverlayVisibility() {
+        const overlayMesh = scene.getObjectByName('overlayMesh');
+        const overlayElement = document.getElementById('overlay');
+
+        keyboardInfoVisible = !keyboardInfoVisible;
+
+        updateKeyboardInfo();
+
+        overlayMesh.material.opacity = keyboardInfoVisible ? 1 : 0;
+        overlayElement.style.opacity = keyboardInfoVisible ? 1 : 0;
+
+
+    }
+
+    function rotateSpacecraft() {
+        // Ide írd meg az űrhajó forgásának logikáját
+        // Például: spacecraft.rotation.y += 6.28319; // 6.28319 radián = 360 fok
+    }
+
+    function handleKeyDown(event) {
+        switch (event.code) {
+            case 'KeyI':
+                toggleOverlayVisibility();
+                break;
+            case 'Space':
+                rotateSpacecraft();
+                break;
+            case 'KeyT':
+                window.location.href = 'index.html';
+                break;
+        }
+        updateKeyboardInfo();
+    }
+
+    function handleKeyUp(event) {
+        // SPACE gomb felengedésekor hívódik meg
+    }
+
+    function animate() {
+        stars.children.forEach(star => {
+            star.position.y -= 1;
+            if (star.position.y < -2000) {
+                star.position.y = 2000;
+            }});
+
+        requestAnimationFrame( animate );
+        controls.update();
+        render();
+    }
+
+    function render() {
+        renderer.render( scene, camera );
+    }
+
+</script>
+</body>
+</html>

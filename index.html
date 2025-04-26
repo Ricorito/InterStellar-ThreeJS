@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" type="text/css" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { width: 100%; height: 100% }
+    #keyboardInfo {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: white;
+      font-size: 0.80rem;
+      font-family: 'Courier New', monospace;
+    }
+
+    #overlayText {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 1.5rem;
+      text-align: center;
+      font-family: 'Courier New', monospace;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+<script src="three.min.js"></script>
+<script>
+  let scene, camera, renderer, stars, starGeo, animationActive = true;
+  let overlayText, overlayText2;
+  let dustParticles;
+
+  function init() {
+    scene = new THREE.Scene();
+
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
+    camera.position.z = 1;
+    camera.rotation.x = Math.PI / 2;
+
+    renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    starGeo = new THREE.Geometry();
+
+    for (let i = 0; i < 5000; i++) {
+      const star = new THREE.Vector3(
+        (Math.random() - 0.5) * 1000,
+        (Math.random() - 0.5) * 1000,
+        (Math.random() - 0.5) * 1000
+      );
+      star.velocity = 0;
+      star.acceleration = 0.4;
+      starGeo.vertices.push(star);
+    }
+
+    const starMaterial = new THREE.PointsMaterial({
+      size: 0.4,
+      color: 0xffffff,
+      emissive: 0xffffff,
+      transparent: true,
+    });
+
+    stars = new THREE.Points(starGeo, starMaterial);
+    scene.add(stars);
+
+    // Overlay text to display instructions
+    overlayText = document.createElement('div');
+    overlayText.id = 'overlayText';
+    document.body.appendChild(overlayText);
+
+    overlayText2 = document.createElement('div');
+    overlayText2.id = 'overlayText2';
+    document.body.appendChild(overlayText2);
+
+    // Create dust particles
+    const dustMaterial = new THREE.PointsMaterial({
+      size: 1, // Increased size for better visibility
+      color: 0xD2B48C, // Sand Yellow color
+      transparent: true,
+      opacity: 0.5,
+    });
+
+    const dustGeo = new THREE.Geometry();
+    for (let i = 0; i < 500; i++) {
+      const dustParticle = new THREE.Vector3(
+        (Math.random() - 0.5) * 200, // Adjusted range to center particles
+        (Math.random() - 0.5) * 200,
+        (Math.random() - 0.5) * 200
+      );
+      dustParticle.originalY = dustParticle.y; // Store the original y position
+      dustGeo.vertices.push(dustParticle);
+    }
+
+    dustParticles = new THREE.Points(dustGeo, dustMaterial);
+    scene.add(dustParticles);
+
+    window.addEventListener("resize", onWindowResize, false);
+    window.addEventListener("keydown", handleKeyDown);
+
+    animate();
+  }
+
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  function handleKeyDown(event) {
+    if (event.code === 'Space') {
+      animationActive = !animationActive; // Toggle animation state
+      updateOverlayText();
+    } else if (event.code === 'KeyB') {
+      // If the 'B' key is pressed, navigate back to the previous page
+      window.history.back();
+    }
+  }
+
+  function updateOverlayText() {
+    if (!animationActive) {
+      overlayText.style.display = 'block';
+      overlayText.innerText = 'Az animáció folytatásához "space"\n\n A jelenet újrajátszáshoz "B"';
+    } else {
+      overlayText.style.display = 'none';
+    }
+  }
+
+  function animate() {
+    if (animationActive) {
+      starGeo.vertices.forEach(p => {
+        p.velocity += p.acceleration
+        p.y -= p.velocity;
+
+        if (p.y < -200) {
+          p.y = 200;
+          p.velocity = 0;
+        }
+      });
+      starGeo.verticesNeedUpdate = true;
+      stars.rotation.y += 0.002;
+
+      // Move dust particles along with stars
+      dustParticles.rotation.y += 0.002;
+
+      // Update dust particle position
+      dustParticles.geometry.vertices.forEach(p => {
+        p.velocity = 0.1;
+        p.y -= p.velocity;
+
+        // Smoothly move particles closer to the camera
+        p.y = lerp(p.y, p.originalY - 100, 0.01);
+
+        if (p.y < -200) {
+          p.y = 200;
+        }
+      });
+      dustParticles.geometry.verticesNeedUpdate = true;
+    }
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+
+    // Update overlay text
+    updateOverlayText();
+  }
+
+  // Linear interpolation function
+  function lerp(start, end, factor) {
+    return (1 - factor) * start + factor * end;
+  }
+
+  init();
+
+</script>
+</body>
+</html>
